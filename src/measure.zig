@@ -60,7 +60,7 @@ pub fn run(alloc: std.mem.Allocator, iterations: u32, func: anytype, setup_func:
 
     for (samples, returns) |*sample, *ret| {
         // Setup
-        const args = @call(.never_inline, setup_func, .{ setup_ctx, arena });
+        const args = try @call(.never_inline, setup_func, .{ setup_ctx, arena });
 
         // Start counting
         _ = std.os.linux.ioctl(fds[0], PERF.EVENT_IOC.RESET, PERF.IOC_FLAG_GROUP);
@@ -139,7 +139,7 @@ test "measure printing" {
             std.debug.print("testing {d}\n", .{int});
             return int;
         }
-        fn next(self: *@This(), alloc: std.mem.Allocator) @import("common.zig").ArgTypes(work) {
+        fn next(self: *@This(), alloc: std.mem.Allocator) !@import("common.zig").ArgTypes(work) {
             _ = alloc;
             return .{self.rand.random().int(u32)};
         }
