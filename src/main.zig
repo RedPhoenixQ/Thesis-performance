@@ -15,16 +15,17 @@ pub fn main() !void {
 
     var buf: [2048]u8 = undefined;
 
+    // TODO: Make these input arguments
+    const out_dir = "./output";
     const iterations = 30;
     var seed: u64 = @intCast(100);
+
+    var dir = try cwd.makeOpenPath(try std.fmt.bufPrint(&buf, "{s}/{d}-{d}", .{ out_dir, now, seed }), .{});
+    defer dir.close();
+
     var size: usize = 1 << 3;
     while (size < 1024 * 1024 * 2) : (size <<= 1) {
         seed += 1;
-        const dir_name = try std.fmt.bufPrint(&buf, "./output/layout/{d}/{d}", .{ now, size });
-        var dir = try cwd.makeOpenPath(dir_name, .{});
-        defer dir.close();
-        std.debug.print("Seed: {d}, size: {d}, Memory: {d}\n", .{ seed, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields) * size) });
-
         {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
             const samples, _ = try measure.run(
@@ -34,7 +35,14 @@ pub fn main() !void {
                 Layout.AccessAllFields.setup_aos,
                 @constCast(&Layout.Gen.init(seed, size)),
             );
-            const file = try dir.createFile("access_all_fields_aos.csv", .{ .mode = 0o666 });
+            const file = try dir.createFile(
+                try std.fmt.bufPrint(
+                    &buf,
+                    "access-all-fields-aos-{d}-{d}.csv",
+                    .{ size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
+                ),
+                .{ .mode = 0o666 },
+            );
             defer file.close();
             try measure.writeToCSV(samples, file.writer().any());
         }
@@ -47,7 +55,14 @@ pub fn main() !void {
                 Layout.AccessAllFields.setup_soa,
                 @constCast(&Layout.Gen.init(seed, size)),
             );
-            const file = try dir.createFile("access_all_fields_soa.csv", .{ .mode = 0o666 });
+            const file = try dir.createFile(
+                try std.fmt.bufPrint(
+                    &buf,
+                    "access-all-fields-soa-{d}-{d}.csv",
+                    .{ size, std.fmt.fmtIntSizeBin(@sizeOf(f32) * 4 * size) },
+                ),
+                .{ .mode = 0o666 },
+            );
             defer file.close();
             try measure.writeToCSV(samples, file.writer().any());
         }

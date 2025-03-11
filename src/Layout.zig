@@ -15,13 +15,13 @@ pub const Gen = struct {
 };
 
 pub const AccessAllFields = struct {
-    const S = struct {
+    pub const S = struct {
         x: f32,
         y: f32,
         z: f32,
         w: f32,
     };
-    const SoA = struct {
+    pub const SoA = struct {
         x: []f32,
         y: []f32,
         z: []f32,
