@@ -26,7 +26,7 @@ const perf_counters = [_]PerfMeasurement{
     .{ .name = "branch_misses", .config = @intFromEnum(PERF.COUNT.HW.BRANCH_MISSES) },
 };
 
-pub fn run(alloc: std.mem.Allocator, iterations: u32, func: anytype, setup_func: anytype, setup_ctx: anytype) !struct {
+pub fn run(alloc: std.mem.Allocator, iterations: u32, comptime func: anytype, comptime setup_func: anytype, setup_ctx: anytype) !struct {
     []Sample,
     /// hash of all return values
     []ReturnType(func),
