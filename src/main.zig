@@ -26,45 +26,50 @@ pub fn main() !void {
     var size: usize = 1 << 3;
     while (size < 1024 * 1024 * 2) : (size <<= 1) {
         seed += 1;
-        {
+        // Layout tests
+        inline for (.{
+            .{ "access-all-fields", Layout.AccessAllFields },
+        }) |opts| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
-            const samples, _ = try measure.run(
+            const name, const Test = opts;
+
+            const samples_aos, const returns_aos = try measure.run(
                 arena,
                 iterations,
-                Layout.AccessAllFields.run_aos,
-                Layout.AccessAllFields.setup_aos,
+                Test.run_aos,
+                Test.setup_aos,
                 @constCast(&Layout.Gen.init(seed, size)),
             );
-            const file = try dir.createFile(
+            const file_aos = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "access-all-fields-aos-{d}-{d}.csv",
-                    .{ size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
+                    "{s}-aos-{d}-{d}.csv",
+                    .{ name, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
             );
-            defer file.close();
-            try measure.writeToCSV(samples, file.writer().any());
-        }
-        {
-            defer std.debug.assert(arena_instance.reset(.retain_capacity));
-            const samples, _ = try measure.run(
+            try measure.writeToCSV(samples_aos, file_aos.writer().any());
+            file_aos.close();
+
+            const samples_soa, const returns_soa = try measure.run(
                 arena,
                 iterations,
-                Layout.AccessAllFields.run_soa,
-                Layout.AccessAllFields.setup_soa,
+                Test.run_soa,
+                Test.setup_soa,
                 @constCast(&Layout.Gen.init(seed, size)),
             );
-            const file = try dir.createFile(
+            const file_soa = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "access-all-fields-soa-{d}-{d}.csv",
-                    .{ size, std.fmt.fmtIntSizeBin(@sizeOf(f32) * 4 * size) },
+                    "{s}-soa-{d}-{d}.csv",
+                    .{ name, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
             );
-            defer file.close();
-            try measure.writeToCSV(samples, file.writer().any());
+            try measure.writeToCSV(samples_soa, file_soa.writer().any());
+            file_soa.close();
+
+            std.testing.expectEqualDeep(returns_aos, returns_soa) catch unreachable;
         }
     }
 }
