@@ -21,6 +21,9 @@ pub const AccessAllFields = struct {
         z: f32,
         w: f32,
     };
+    comptime {
+        std.testing.expectEqual(16, @sizeOf(S)) catch unreachable;
+    }
     pub const SoA = struct {
         x: []f32,
         y: []f32,
@@ -82,6 +85,9 @@ pub const AccessSomeFields = struct {
         z: f32,
         w: f32,
     };
+    comptime {
+        std.testing.expectEqual(16, @sizeOf(S)) catch unreachable;
+    }
     pub const SoA = struct {
         x: []f32,
         y: []f32,
@@ -142,6 +148,9 @@ pub const AccessAllPaddedFields = struct {
         div: u8,
         factor: u64,
     };
+    comptime {
+        std.testing.expectEqual(16, @sizeOf(S)) catch unreachable;
+    }
     pub const SoA = struct {
         base: []u32,
         div: []u8,
