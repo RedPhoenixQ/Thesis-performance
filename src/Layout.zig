@@ -29,16 +29,16 @@ pub const AccessAllFields = struct {
     };
 
     pub fn setup_aos(gen: *Gen, alloc: Allocator) !ArgTypes(run_aos) {
-        const points = try alloc.alloc(S, gen.amount);
-        for (points) |*p| {
-            p.* = .{
+        const items = try alloc.alloc(S, gen.amount);
+        for (items) |*s| {
+            s.* = .{
                 .x = gen.rand.float(f32),
                 .y = gen.rand.float(f32),
                 .z = gen.rand.float(f32),
                 .w = gen.rand.float(f32),
             };
         }
-        return .{points};
+        return .{items};
     }
     pub fn setup_soa(gen: *Gen, alloc: Allocator) !ArgTypes(run_soa) {
         const xs = try alloc.alloc(f32, gen.amount);
@@ -54,17 +54,17 @@ pub const AccessAllFields = struct {
         return .{.{ .x = xs, .y = ys, .z = zs, .w = ws }};
     }
 
-    pub fn run_aos(points: []S) f32 {
+    pub fn run_aos(items: []S) f32 {
         var ret: f32 = 0.0;
-        for (points) |p| {
+        for (items) |p| {
             ret += compute(p.x, p.y, p.z, p.w);
         }
         return ret;
     }
-    pub fn run_soa(points: SoA) f32 {
+    pub fn run_soa(items: SoA) f32 {
         var ret: f32 = 0.0;
-        for (0..points.x.len) |i| {
-            ret += compute(points.x[i], points.y[i], points.z[i], points.w[i]);
+        for (items.x, items.y, items.z, items.w) |x, y, z, w| {
+            ret += compute(x, y, z, w);
         }
         return ret;
     }
@@ -90,16 +90,16 @@ pub const AccessSomeFields = struct {
     };
 
     pub fn setup_aos(gen: *Gen, alloc: Allocator) !ArgTypes(run_aos) {
-        const points = try alloc.alloc(S, gen.amount);
-        for (points) |*p| {
-            p.* = .{
+        const items = try alloc.alloc(S, gen.amount);
+        for (items) |*s| {
+            s.* = .{
                 .x = gen.rand.float(f32),
                 .y = gen.rand.float(f32),
                 .z = gen.rand.float(f32),
                 .w = gen.rand.float(f32),
             };
         }
-        return .{points};
+        return .{items};
     }
     pub fn setup_soa(gen: *Gen, alloc: Allocator) !ArgTypes(run_soa) {
         const xs = try alloc.alloc(f32, gen.amount);
@@ -115,17 +115,17 @@ pub const AccessSomeFields = struct {
         return .{.{ .x = xs, .y = ys, .z = zs, .w = ws }};
     }
 
-    pub fn run_aos(points: []S) f32 {
+    pub fn run_aos(items: []S) f32 {
         var ret: f32 = 0.0;
-        for (points) |p| {
-            ret += compute(p.x, p.y, p.x, p.y);
+        for (items) |s| {
+            ret += compute(s.x, s.y, s.x, s.y);
         }
         return ret;
     }
-    pub fn run_soa(points: SoA) f32 {
+    pub fn run_soa(items: SoA) f32 {
         var ret: f32 = 0.0;
-        for (0..points.x.len) |i| {
-            ret += compute(points.x[i], points.y[i], points.x[i], points.y[i]);
+        for (items.x, items.y, items.z, items.w) |x, y, z, w| {
+            ret += compute(x, y, z, w);
         }
         return ret;
     }
