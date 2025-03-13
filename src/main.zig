@@ -5,6 +5,7 @@ const measure = @import("measure.zig");
 const ArgTypes = @import("common.zig").ArgTypes;
 
 const Layout = @import("Layout.zig");
+const ControlFlow = @import("ControlFlow.zig");
 
 pub fn main() !void {
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -72,6 +73,34 @@ pub fn main() !void {
             file_soa.close();
 
             std.testing.expectEqualDeep(returns_aos, returns_soa) catch unreachable;
+        }
+        inline for (.{
+            .{ ControlFlow.DynamicDispatch, .unsorted },
+            .{ ControlFlow.DynamicDispatch, .sorted },
+            .{ ControlFlow.TaggedDispatch, .unsorted },
+            .{ ControlFlow.TaggedDispatch, .sorted },
+            .{ ControlFlow.ExistentialProcessing, .sorted },
+        }) |opts| {
+            defer std.debug.assert(arena_instance.reset(.free_all));
+            const Test, const sort = opts;
+
+            const samples, _ = try measure.run(
+                arena,
+                iterations,
+                Test.run,
+                Test.setup,
+                @constCast(&ControlFlow.Gen.init(seed, size, sort)),
+            );
+            const file = try dir.createFile(
+                try std.fmt.bufPrint(
+                    &buf,
+                    "{any}-{s}-{d}.csv",
+                    .{ Test, @tagName(sort), size },
+                ),
+                .{ .mode = 0o666 },
+            );
+            try measure.writeToCSV(samples, file.writer().any());
+            file.close();
         }
     }
 }
