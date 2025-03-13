@@ -28,13 +28,12 @@ pub fn main() !void {
         seed += 1;
         // Layout tests
         inline for (.{
-            .{ "access-all-fields", Layout.AccessAllFields },
-            .{ "access-some-fields", Layout.AccessSomeFields },
-            .{ "access-all-padded-fields", Layout.AccessAllPaddedFields },
-            .{ "write-to-one-field", Layout.WriteToOneField },
-        }) |opts| {
+            Layout.AccessAllFields,
+            Layout.AccessSomeFields,
+            Layout.AccessAllPaddedFields,
+            Layout.WriteToOneField,
+        }) |Test| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
-            const name, const Test = opts;
 
             const samples_aos, const returns_aos = try measure.run(
                 arena,
@@ -46,8 +45,8 @@ pub fn main() !void {
             const file_aos = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "{s}-aos-{d}-{d}.csv",
-                    .{ name, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
+                    "{any}-aos-{d}-{d}.csv",
+                    .{ Test, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
             );
@@ -64,8 +63,8 @@ pub fn main() !void {
             const file_soa = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "{s}-soa-{d}-{d}.csv",
-                    .{ name, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
+                    "{any}-soa-{d}-{d}.csv",
+                    .{ Test, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
             );
