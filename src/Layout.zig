@@ -135,3 +135,59 @@ pub const AccessSomeFields = struct {
         return std.math.acos(a) * b / 2 * c + std.math.atan(d) * std.math.exp2(d);
     }
 };
+
+pub const AccessAllPaddedFields = struct {
+    pub const S = struct {
+        base: u32,
+        div: u8,
+        factor: u64,
+    };
+    pub const SoA = struct {
+        base: []u32,
+        div: []u8,
+        factor: []u64,
+    };
+
+    pub fn setup_aos(gen: *Gen, alloc: Allocator) !ArgTypes(run_aos) {
+        const items = try alloc.alloc(S, gen.amount);
+        for (items) |*s| {
+            s.* = .{
+                .base = gen.rand.int(u32),
+                .div = gen.rand.intRangeLessThanBiased(u8, 2, 200),
+                .factor = gen.rand.int(u64),
+            };
+        }
+        return .{items};
+    }
+    pub fn setup_soa(gen: *Gen, alloc: Allocator) !ArgTypes(run_soa) {
+        const bases = try alloc.alloc(u32, gen.amount);
+        const divs = try alloc.alloc(u8, gen.amount);
+        const factors = try alloc.alloc(u64, gen.amount);
+        for (bases, divs, factors) |*base, *div, *factor| {
+            base.* = gen.rand.int(u32);
+            div.* = gen.rand.intRangeLessThanBiased(u8, 2, 200);
+            factor.* = gen.rand.int(u64);
+        }
+        return .{.{ .base = bases, .div = divs, .factor = factors }};
+    }
+
+    pub fn run_aos(items: []S) u64 {
+        var ret: u64 = 0.0;
+        for (items) |p| {
+            ret +%= compute(p.base, p.div, p.factor);
+        }
+        return ret;
+    }
+    pub fn run_soa(items: SoA) u64 {
+        var ret: u64 = 0.0;
+        for (items.base, items.div, items.factor) |base, div, factor| {
+            ret +%= compute(base, div, factor);
+        }
+        return ret;
+    }
+
+    inline fn compute(base: u32, div: u8, factor: u64) u64 {
+        // arbitrary time consuming computation
+        return @as(u64, @intCast(base)) *% factor / @as(u64, @intCast(div));
+    }
+};

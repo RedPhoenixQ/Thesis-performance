@@ -30,6 +30,7 @@ pub fn main() !void {
         inline for (.{
             .{ "access-all-fields", Layout.AccessAllFields },
             .{ "access-some-fields", Layout.AccessSomeFields },
+            .{ "access-all-padded-fields", Layout.AccessAllPaddedFields },
         }) |opts| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
             const name, const Test = opts;
