@@ -29,6 +29,7 @@ pub fn main() !void {
         // Layout tests
         inline for (.{
             .{ "access-all-fields", Layout.AccessAllFields },
+            .{ "access-some-fields", Layout.AccessSomeFields },
         }) |opts| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
             const name, const Test = opts;
