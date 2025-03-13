@@ -31,6 +31,7 @@ pub fn main() !void {
             .{ "access-all-fields", Layout.AccessAllFields },
             .{ "access-some-fields", Layout.AccessSomeFields },
             .{ "access-all-padded-fields", Layout.AccessAllPaddedFields },
+            .{ "write-to-one-field", Layout.WriteToOneField },
         }) |opts| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
             const name, const Test = opts;

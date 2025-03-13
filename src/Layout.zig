@@ -200,3 +200,71 @@ pub const AccessAllPaddedFields = struct {
         return @as(u64, @intCast(base)) *% factor / @as(u64, @intCast(div));
     }
 };
+
+pub const WriteToOneField = struct {
+    pub const S = struct {
+        total: f32,
+        x: f32,
+        y: f32,
+        z: f32,
+    };
+    comptime {
+        std.testing.expectEqual(16, @sizeOf(S)) catch unreachable;
+    }
+    pub const SoA = struct {
+        total: []f32,
+        x: []f32,
+        y: []f32,
+        z: []f32,
+    };
+
+    pub fn setup_aos(gen: *Gen, alloc: Allocator) !ArgTypes(run_aos) {
+        const items = try alloc.alloc(S, gen.amount);
+        for (items) |*s| {
+            s.* = .{
+                .total = 0.0,
+                .x = gen.rand.float(f32),
+                .y = gen.rand.float(f32),
+                .z = gen.rand.float(f32),
+            };
+        }
+        return .{items};
+    }
+    pub fn setup_soa(gen: *Gen, alloc: Allocator) !ArgTypes(run_soa) {
+        const items: SoA = .{
+            .total = try alloc.alloc(f32, gen.amount),
+            .x = try alloc.alloc(f32, gen.amount),
+            .y = try alloc.alloc(f32, gen.amount),
+            .z = try alloc.alloc(f32, gen.amount),
+        };
+        for (items.total, items.x, items.y, items.z) |*total, *x, *y, *z| {
+            total.* = 0.0;
+            x.* = gen.rand.float(f32);
+            y.* = gen.rand.float(f32);
+            z.* = gen.rand.float(f32);
+        }
+        return .{items};
+    }
+
+    pub fn run_aos(items: []S) f32 {
+        var ret: f32 = 0.0;
+        for (items) |*p| {
+            p.total = compute(p.x, p.y, p.z);
+            ret += p.total;
+        }
+        return ret;
+    }
+    pub fn run_soa(items: SoA) f32 {
+        var ret: f32 = 0.0;
+        for (items.total, items.x, items.y, items.z) |*total, x, y, z| {
+            total.* = compute(x, y, z);
+            ret += total.*;
+        }
+        return ret;
+    }
+
+    inline fn compute(x: f32, y: f32, z: f32) f32 {
+        // arbitrary time consuming computation
+        return x * 100 / (y + 0.1) * z;
+    }
+};
