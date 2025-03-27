@@ -81,7 +81,7 @@ pub fn main() !void {
             .{ ControlFlow.TaggedDispatch, .sorted },
             .{ ControlFlow.ExistentialProcessing, .sorted },
         }) |opts| {
-            defer std.debug.assert(arena_instance.reset(.free_all));
+            defer std.debug.assert(arena_instance.reset(.retain_capacity));
             const Test, const sort = opts;
 
             const samples, _ = try measure.run(
