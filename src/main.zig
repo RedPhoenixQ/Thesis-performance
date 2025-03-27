@@ -21,7 +21,7 @@ pub fn main() !void {
     const iterations = 30;
     var seed: u64 = @intCast(100);
 
-    var dir = try cwd.makeOpenPath(try std.fmt.bufPrint(&buf, "{s}/{d}-{d}", .{ out_dir, now, seed }), .{});
+    var dir = try cwd.makeOpenPath(try std.fmt.bufPrint(&buf, "{s}/{d}-{d}/data", .{ out_dir, now, seed }), .{});
     defer dir.close();
 
     var size: usize = 1 << 3;
