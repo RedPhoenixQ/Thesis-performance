@@ -46,7 +46,7 @@ pub fn main() !void {
             const file_aos = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "{any}-aos-{d}-{d}.csv",
+                    "{any}-AoS-{d}-{d}.csv",
                     .{ Test, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
@@ -64,7 +64,7 @@ pub fn main() !void {
             const file_soa = try dir.createFile(
                 try std.fmt.bufPrint(
                     &buf,
-                    "{any}-soa-{d}-{d}.csv",
+                    "{any}-SoA-{d}-{d}.csv",
                     .{ Test, size, std.fmt.fmtIntSizeBin(@sizeOf(Layout.AccessAllFields.S) * size) },
                 ),
                 .{ .mode = 0o666 },
