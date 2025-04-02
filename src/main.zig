@@ -18,8 +18,8 @@ pub fn main() !void {
 
     // TODO: Make these input arguments
     const out_dir = "./output";
-    const iterations = 30;
-    var seed: u64 = @intCast(100);
+    const iterations = 100;
+    var seed: u64 = @intCast(200);
 
     var dir = try cwd.makeOpenPath(try std.fmt.bufPrint(&buf, "{s}/{d}-{d}/data", .{ out_dir, now, seed }), .{});
     defer dir.close();
