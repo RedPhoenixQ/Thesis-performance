@@ -130,8 +130,8 @@ pub const AccessSomeFields = struct {
     }
     pub fn run_soa(items: SoA) f32 {
         var ret: f32 = 0.0;
-        for (items.x, items.y, items.z, items.w) |x, y, z, w| {
-            ret += compute(x, y, z, w);
+        for (items.x, items.y) |x, y| {
+            ret += compute(x, y, x, y);
         }
         return ret;
     }
