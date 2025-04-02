@@ -10,6 +10,7 @@ const Sample = struct {
     instructions: u64,
     cache_references: u64,
     cache_misses: u64,
+    branch_instructions: u64,
     branch_misses: u64,
 };
 
@@ -23,6 +24,7 @@ const perf_counters = [_]PerfMeasurement{
     .{ .name = "instructions", .config = @intFromEnum(PERF.COUNT.HW.INSTRUCTIONS) },
     .{ .name = "cache_references", .config = @intFromEnum(PERF.COUNT.HW.CACHE_REFERENCES) },
     .{ .name = "cache_misses", .config = @intFromEnum(PERF.COUNT.HW.CACHE_MISSES) },
+    .{ .name = "branch_instructions", .config = @intFromEnum(PERF.COUNT.HW.BRANCH_INSTRUCTIONS) },
     .{ .name = "branch_misses", .config = @intFromEnum(PERF.COUNT.HW.BRANCH_MISSES) },
 };
 
