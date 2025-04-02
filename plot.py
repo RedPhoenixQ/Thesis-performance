@@ -88,7 +88,7 @@ def per_size_bar(name: str, source: pl.DataFrame, col: str, agg="mean", extent="
     )
     (line + error_bars).save(fig_dir.joinpath(f"{name}-{col}-bar-{extent}.png"), scale_factor=4)
 
-def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined):
+def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, color="kind", save=True, chart_layers=[]):
     error_bars = alt.Chart(source).mark_errorband(extent=extent).encode(
         alt.X("size").type("ordinal").title("Size"),
         alt.Y(col,
@@ -97,29 +97,68 @@ def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent=
             axis=alt.Axis(format=y_format),
             title=col.replace("_", " ").capitalize(),
         ),
-        color="kind",
+        color=color,
     )
     line = alt.Chart(source).mark_line().encode(
         alt.X("size").type("ordinal").title("Size"),
         alt.Y(col,
             aggregate=agg,
             scale=alt.Scale(type=scale), 
-            axis=alt.Axis(format=y_format),
+            axis=alt.Axis(format=y_format), 
             title=col.replace("_", " ").capitalize(),
         ),
-        color="kind",
+        color=color,
     )
-    (line + error_bars).save(fig_dir.joinpath(f"{name}-{col}-line-{extent}.png"), scale_factor=4)
+    chart = alt.layer(*chart_layers, line, error_bars)
+    if (save):
+        chart.save(fig_dir.joinpath(f"{name}-{col}-line-{extent}.png"), scale_factor=4)
+    return chart
 
-scenarios = df.partition_by("scenario", include_key=False, as_dict=True)
 
-for (s,), data in scenarios.items():
-    print(s, data)
+
+cache_l1 = alt.Chart(pl.from_dict({"x": (64 * 1024 ) // 24})).mark_rule(strokeDash=[12, 6], size=2).encode(x=alt.X("x", type="ordinal"))
+cache_l2 = alt.Chart(pl.from_dict({"x": (256 * 1024 ) // 24})).mark_rule(strokeDash=[12, 6], size=2).encode(x=alt.X("x", type="ordinal"))
+cache_l3 = alt.Chart(pl.from_dict({"x": (9 * 1024 * 1024 ) // 24})).mark_rule(strokeDash=[12, 6], size=2).encode(x=alt.X("x", type="ordinal"))
+cache_lines = [
+    cache_l1, cache_l1.mark_text(text="L1", y=15, dx=-5, align="right", baseline="bottom"),
+    cache_l2, cache_l2.mark_text(text="L2", y=15, dx=-5, align="right", baseline="bottom"),
+    cache_l3, cache_l3.mark_text(text="L3", y=15, dx=-5, align="right", baseline="bottom"),
+]
+
+
+
+control_flow_scenarios = df.filter(part="ControlFlow").partition_by("scenario")
+
+alt.layer(*[
+    per_size_line("", data, "wall_clock", scale="log", extent="ci", color="test", save=False) 
+    for data in control_flow_scenarios
+]).save(fig_dir.joinpath("ControlFlow-wall_clock-ci.png"), scale_factor=4)
+
+alt.layer(*[
+    per_size_line("", data, "inst_per_cycle", extent="ci", color="test", save=False) 
+    for data in control_flow_scenarios
+]).save(fig_dir.joinpath("ControlFlow-inst_per_cycle-ci.png"), scale_factor=4)
+
+alt.layer(*cache_lines, *[
+    per_size_line("", data, "cache_miss_rate", extent="ci", color="test", save=False) 
+    for data in control_flow_scenarios
+]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-ci.png"), scale_factor=4)
+
+alt.layer(*[
+    per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="test", save=False) 
+    for data in control_flow_scenarios
+]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-ci.png"), scale_factor=4)
+
+
+
+scenarios = df.partition_by("scenario", "part", include_key=False, as_dict=True)
+for (s, part), data in scenarios.items():
+    print(s)
 
     for (col, opts) in [
         ("wall_clock", {"scale": "log"}), 
         ("inst_per_cycle", {}), 
-        ("cache_miss_rate", {"y_format": "%"}), 
+        ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
         ("branch_miss_rate", {"y_format": "%"})
         ]:
         per_size_bar(s, data, col, **opts)
