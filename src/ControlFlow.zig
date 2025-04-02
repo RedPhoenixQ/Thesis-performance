@@ -227,7 +227,7 @@ pub const DynamicDispatch = struct {
     }
 };
 
-pub const TaggedDispatch = struct {
+pub const EnumTaggedDispatch = struct {
     const E = union(Types.Tag) {
         a: Types.A,
         b: Types.B,

@@ -77,8 +77,8 @@ pub fn main() !void {
         inline for (.{
             .{ ControlFlow.DynamicDispatch, .unsorted },
             .{ ControlFlow.DynamicDispatch, .sorted },
-            .{ ControlFlow.TaggedDispatch, .unsorted },
-            .{ ControlFlow.TaggedDispatch, .sorted },
+            .{ ControlFlow.EnumTaggedDispatch, .unsorted },
+            .{ ControlFlow.EnumTaggedDispatch, .sorted },
             .{ ControlFlow.ExistentialProcessing, .sorted },
         }) |opts| {
             defer std.debug.assert(arena_instance.reset(.retain_capacity));
