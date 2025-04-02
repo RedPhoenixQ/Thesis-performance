@@ -38,12 +38,30 @@ for name in filenames:
 
 df: pl.DataFrame = pl.concat(frames)
 df = df.with_columns(
-    (pl.when(pl.col("cache_references") > 0)
+    (pl.col("instructions") / pl.col("cpu_cycles"))
+        .alias("inst_per_cycle"),
+    pl.when(pl.col("cache_references") > 0)
         .then(1 - (pl.col("cache_misses") / pl.col("cache_references")))
         .otherwise(1)
         .alias("cache_hit_rate"),
-    )
+    pl.when(pl.col("branch_instructions") > 0)
+        .then(1 - (pl.col("branch_misses") / pl.col("branch_instructions")))
+        .otherwise(1)
+        .alias("branch_hit_rate"),
 )
+
+summary = df.group_by("size", "part", "scenario", "kind").agg(
+    pl.mean("wall_clock"),
+    pl.std("wall_clock").name.suffix("_std"),
+    pl.mean("inst_per_cycle"),
+    pl.std("inst_per_cycle").name.suffix("_std"),
+    pl.mean("cache_hit_rate"),
+    pl.std("cache_hit_rate").name.suffix("_std"),
+    pl.mean("branch_hit_rate"),
+    pl.std("branch_hit_rate").name.suffix("_std"),
+).sort("size", "part", "scenario", "kind")
+
+summary.write_csv(fig_dir.joinpath("summary.csv"))
 
 sizes = df.get_column("size").unique()
 columns = list(filter(lambda c: c not in ["part", "scenario", "test", "kind", "size"], df.columns))
