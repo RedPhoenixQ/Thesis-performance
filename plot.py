@@ -86,6 +86,12 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
+(df.with_columns(instructions_per_item=pl.col("instructions") / pl.col("size"))
+    .group_by("part", "Scenario")
+    .agg(pl.mean("instructions_per_item"), pl.std("instructions_per_item").name.suffix("_std"))
+    .sort("part", "Scenario")
+).write_csv(fig_dir.joinpath("instructions.csv"))
+
 def per_size_bar(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, chart_layers=None):
     error_bars = alt.Chart(source).mark_errorbar(extent=extent, ticks=True).encode(
         alt.X("size", type="ordinal", title="Size"),
@@ -172,11 +178,6 @@ alt.layer(*cache_lines, *[
     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
     for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-ci.png"), scale_factor=4)
-
-alt.layer(*cache_lines, *[
-    per_size_line("", data, "instructions", scale="log", extent="stdev", color="Scenario", save=False) 
-    for data in control_flow_tests
-]).save(fig_dir.joinpath(f"ControlFlow-instructions-stdev.png"), scale_factor=4)
 
 
 # layout_tests = df.filter(part="Layout").partition_by("test")
