@@ -26,15 +26,15 @@ for name in filenames:
     split = rest.split("-")
     if len(split) == 4:
         split.pop()
-    [scenario, kind, size] = split
+    [test, kind, size] = split
     df = pl.read_csv(data_dir.joinpath( name), skip_rows_after_header=5)
     df = df.with_columns(
         pl.lit(part).alias("part"),
-        pl.lit(scenario).alias("scenario"),
+        pl.lit(test).alias("test"),
         pl.lit(kind).alias("kind"),
         pl.lit(int(size)).alias("size"),
     )
-    df = df.with_columns((pl.col("scenario") + "-" + pl.col("kind")).alias("test"))
+    df = df.with_columns((pl.col("test") + "-" + pl.col("kind")).alias("Scenario"))
     frames.append(df)
 
 df: pl.DataFrame = pl.concat(frames)
@@ -54,26 +54,26 @@ df = df.with_columns(
 # points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
 #     alt.X("wall_clock", scale=alt.Scale(type="log")),
 #     alt.Y("branch_miss_rate"),
-#     color="test",
+#     color="Scenario",
 # )
-# regressions = [points.transform_regression("instructions_per_cycle", "branch_miss_rate", groupby=["test"], method="poly", order=4)
+# regressions = [points.transform_regression("instructions_per_cycle", "branch_miss_rate", groupby=["Scenario"], method="poly", order=4)
 #     .mark_line()
-#     .encode(color="test")
+#     .encode(color="Scenario")
 # ]
 # alt.layer(points,).save(fig_dir.joinpath("branch_miss_rate-scatter.png"), scale_factor=4)
 
 # points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
 #     alt.X("wall_clock", scale=alt.Scale(type="log")),
 #     alt.Y("cache_miss_rate"),
-#     color="test",
+#     color="Scenario",
 # )
-# regressions = [points.transform_regression("instructions_per_cycle", "cache_miss_rate", groupby=["test"], method="linear")
+# regressions = [points.transform_regression("instructions_per_cycle", "cache_miss_rate", groupby=["Scenario"], method="linear")
 #     .mark_line()
-#     .encode(color="test")
+#     .encode(color="Scenario")
 # ]
 # alt.layer(points, ).save(fig_dir.joinpath("cache_miss_rate-scatter.png"), scale_factor=4)
 
-summary = df.group_by("size", "part", "scenario", "kind").agg(
+summary = df.group_by("size", "part", "test", "kind").agg(
     pl.mean("wall_clock"),
     pl.std("wall_clock").name.suffix("_std"),
     pl.mean("instructions_per_cycle"),
@@ -82,7 +82,7 @@ summary = df.group_by("size", "part", "scenario", "kind").agg(
     pl.std("cache_miss_rate").name.suffix("_std"),
     pl.mean("branch_miss_rate"),
     pl.std("branch_miss_rate").name.suffix("_std"),
-).sort("size", "part", "scenario", "kind")
+).sort("size", "part", "test", "kind")
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
@@ -151,54 +151,59 @@ cache_lines.extend([
 
 
 
-control_flow_scenarios = df.filter(part="ControlFlow").partition_by("scenario")
+control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
 
 alt.layer(*[
-    per_size_line("", data, "wall_clock", scale="log", extent="ci", color="test", save=False) 
-    for data in control_flow_scenarios
+    per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
+    for data in control_flow_tests
 ]).save(fig_dir.joinpath("ControlFlow-wall_clock-ci.png"), scale_factor=4)
 
 alt.layer(*[
-    per_size_line("", data, "instructions_per_cycle", extent="ci", color="test", save=False) 
-    for data in control_flow_scenarios
+    per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
+    for data in control_flow_tests
 ]).save(fig_dir.joinpath("ControlFlow-instructions_per_cycle-ci.png"), scale_factor=4)
 
 alt.layer(*cache_lines, *[
-    per_size_line("", data, "cache_miss_rate", extent="ci", color="test", save=False) 
-    for data in control_flow_scenarios
+    per_size_line("", data, "cache_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
+    for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-ci.png"), scale_factor=4)
 
 alt.layer(*[
-    per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="test", save=False) 
-    for data in control_flow_scenarios
+    per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
+    for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-ci.png"), scale_factor=4)
 
+alt.layer(*[
+    per_size_line("", data, "instructions", y_format="%", extent="stdev", color="Scenario", save=False) 
+    for data in control_flow_tests
+]).save(fig_dir.joinpath(f"ControlFlow-instructions-stdev.png"), scale_factor=4)
 
-# layout_scenarios = df.filter(part="Layout").partition_by("scenario")
+
+# layout_tests = df.filter(part="Layout").partition_by("test")
 
 # alt.layer(*[
-#     per_size_line("", data, "wall_clock", scale="log", extent="ci", color="test", save=False) 
-#     for data in layout_scenarios
+#     per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
+#     for data in layout_tests
 # ]).save(fig_dir.joinpath("Layout-wall_clock-ci.png"), scale_factor=4)
 
 # alt.layer(*[
-#     per_size_line("", data, "instructions_per_cycle", extent="ci", color="test", save=False) 
-#     for data in layout_scenarios
+#     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
+#     for data in layout_tests
 # ]).save(fig_dir.joinpath("Layout-instructions_per_cycle-ci.png"), scale_factor=4)
 
 # alt.layer(*cache_lines, *[
-#     per_size_line("", data, "cache_miss_rate", extent="ci", color="test", save=False) 
-#     for data in layout_scenarios
+#     per_size_line("", data, "cache_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
+#     for data in layout_tests
 # ]).save(fig_dir.joinpath(f"Layout-cache_miss_rate-ci.png"), scale_factor=4)
 
 # alt.layer(*[
-#     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="test", save=False) 
-#     for data in layout_scenarios
+#     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
+#     for data in layout_tests
 # ]).save(fig_dir.joinpath(f"Layout-branch_miss_rate-ci.png"), scale_factor=4)
 
 
 
-scenarios = df.partition_by("scenario", include_key=False, as_dict=True)
+scenarios = df.partition_by("test", include_key=False, as_dict=True)
 for (s,), data in scenarios.items():
     print(s)
 
