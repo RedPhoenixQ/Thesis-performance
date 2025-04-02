@@ -145,14 +145,14 @@ def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent=
 
 
 cache_lines = [
-    alt.Chart(pl.from_dict({"x": cache_size // 24}))
+    alt.Chart(pl.from_dict({"x": cache_size // 16}))
         .mark_rule(strokeDash=[12, 6], size=2)
         .encode(alt.X("x", type="quantitative", scale=alt.Scale(type="log", base=2)))
     for cache_size in [(64 * 1024), (256 * 1024), (9 * 1024 * 1024)]
 ]
 cache_lines.extend([
     line.mark_text(text="L" + str(i), y=15, dx=-5, align="right", baseline="bottom")
-    for i, line in enumerate(cache_lines)
+    for i, line in enumerate(cache_lines, 1)
 ])
 
 
