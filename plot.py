@@ -153,12 +153,12 @@ cache_lines.extend([
 
 control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
 
-alt.layer(*[
+alt.layer(*cache_lines, *[
     per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
     for data in control_flow_tests
 ]).save(fig_dir.joinpath("ControlFlow-wall_clock-ci.png"), scale_factor=4)
 
-alt.layer(*[
+alt.layer(*cache_lines, *[
     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
     for data in control_flow_tests
 ]).save(fig_dir.joinpath("ControlFlow-instructions_per_cycle-ci.png"), scale_factor=4)
@@ -168,35 +168,35 @@ alt.layer(*cache_lines, *[
     for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-ci.png"), scale_factor=4)
 
-alt.layer(*[
+alt.layer(*cache_lines, *[
     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
     for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-ci.png"), scale_factor=4)
 
-alt.layer(*[
-    per_size_line("", data, "instructions", y_format="%", extent="stdev", color="Scenario", save=False) 
+alt.layer(*cache_lines, *[
+    per_size_line("", data, "instructions", scale="log", extent="stdev", color="Scenario", save=False) 
     for data in control_flow_tests
 ]).save(fig_dir.joinpath(f"ControlFlow-instructions-stdev.png"), scale_factor=4)
 
 
 # layout_tests = df.filter(part="Layout").partition_by("test")
 
-# alt.layer(*[
+# alt.layer(*cache_lines, *[
 #     per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
 #     for data in layout_tests
 # ]).save(fig_dir.joinpath("Layout-wall_clock-ci.png"), scale_factor=4)
 
-# alt.layer(*[
+# alt.layer(*cache_lines, *[
 #     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
 #     for data in layout_tests
 # ]).save(fig_dir.joinpath("Layout-instructions_per_cycle-ci.png"), scale_factor=4)
 
-# alt.layer(*cache_lines, *[
+# alt.layer(*cache_lines, *cache_lines, *[
 #     per_size_line("", data, "cache_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
 #     for data in layout_tests
 # ]).save(fig_dir.joinpath(f"Layout-cache_miss_rate-ci.png"), scale_factor=4)
 
-# alt.layer(*[
+# alt.layer(*cache_lines, *[
 #     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
 #     for data in layout_tests
 # ]).save(fig_dir.joinpath(f"Layout-branch_miss_rate-ci.png"), scale_factor=4)
@@ -208,10 +208,10 @@ for (s,), data in scenarios.items():
     print(s)
 
     for (col, opts) in [
-        ("wall_clock", {"scale": "log"}), 
-        ("instructions_per_cycle", {}), 
+        ("wall_clock", {"scale": "log", "chart_layers": cache_lines}), 
+        ("instructions_per_cycle", {"chart_layers": cache_lines}), 
         ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
-        ("branch_miss_rate", {"y_format": "%"})
+        ("branch_miss_rate", {"y_format": "%", "chart_layers": cache_lines})
         ]:
         per_size_bar(s, data, col, **opts)
         per_size_bar(s, data, col, **opts, extent="ci")
