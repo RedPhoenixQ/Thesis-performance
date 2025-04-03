@@ -87,10 +87,12 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
+sizes_ordered = summary.get_column("size").unique(maintain_order=True)
+
 times = df.filter(part="Layout").select("test", "kind", "size", "execution_time").partition_by("test", as_dict=True, include_key=False)
 
 ttest = {
-    "size": summary.get_column("size").unique(maintain_order=True)
+    "size": sizes_ordered.cast(pl.String)
 }
 for (name, ), data in times.items():
     data_parts = data.partition_by("kind", as_dict=True, include_key=False)
@@ -98,21 +100,21 @@ for (name, ), data in times.items():
     two = data_parts.get(("AoS",)).select(time_AoS="execution_time")
     cmp = one.hstack(two)
 
-    sizes = cmp.partition_by("size", maintain_order=True)
+    sizes = cmp.sort("size").partition_by("size", maintain_order=True)
     tests = [
-        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_SoA"))
+        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_SoA"), equal_var=False)
         for size in sizes
     ]
     # ttest[f"{name}-stats"] = [test.statistic for test in tests]
-    ttest[f"{name}-pvalue"] = [test.pvalue for test in tests]
+    ttest[name] = [test.pvalue for test in tests]
 
-ttest = pl.from_dict(ttest)
-ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest.csv"))
+ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
+ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
 
 times = df.filter(part="ControlFlow").select("Scenario", "size", "execution_time").partition_by("Scenario", as_dict=True, include_key=False)
 
 ttest = {
-    "size": summary.get_column("size").unique(maintain_order=True)
+    "size": sizes_ordered.cast(pl.String)
 }
 for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.items(), 2):
     if (name_1 == name_2): continue
@@ -120,16 +122,16 @@ for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.
     two = data_2.select(time_2="execution_time")
     cmp = one.hstack(two)
 
-    sizes = cmp.partition_by("size", maintain_order=True)
+    sizes = cmp.sort("size").partition_by("size", maintain_order=True)
     tests = [
-        stats.ttest_ind(size.get_column("time_1"), size.get_column("time_2"))
+        stats.ttest_ind(size.get_column("time_1"), size.get_column("time_2"), equal_var=False)
         for size in sizes
     ]
     # ttest[f"{name_1}-{name_2}-stats"] = [test.statistic for test in tests]
-    ttest[f"{name_1}-{name_2}-pvalue"] = [test.pvalue for test in tests]
+    ttest[f"{name_1} - {name_2}"] = [test.pvalue for test in tests]
 
-ttest = pl.from_dict(ttest)
-ttest.write_csv(fig_dir.joinpath("ControlFlow-execution_time-ttest.csv"))
+ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
+ttest.write_csv(fig_dir.joinpath("ControlFlow-execution_time-ttest-pvalue.csv"))
 
 
 
