@@ -53,7 +53,7 @@ df = df.with_columns(
 )
 
 # points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
-#     alt.X("wall_clock", scale=alt.Scale(type="log")),
+#     alt.X("execution_time", scale=alt.Scale(type="log")),
 #     alt.Y("branch_miss_rate"),
 #     color="Scenario",
 # )
@@ -64,7 +64,7 @@ df = df.with_columns(
 # alt.layer(points,).save(fig_dir.joinpath("branch_miss_rate-scatter.png"), scale_factor=4)
 
 # points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
-#     alt.X("wall_clock", scale=alt.Scale(type="log")),
+#     alt.X("execution_time", scale=alt.Scale(type="log")),
 #     alt.Y("cache_miss_rate"),
 #     color="Scenario",
 # )
@@ -75,8 +75,8 @@ df = df.with_columns(
 # alt.layer(points, ).save(fig_dir.joinpath("cache_miss_rate-scatter.png"), scale_factor=4)
 
 summary = df.group_by("size", "part", "test", "kind").agg(
-    pl.mean("wall_clock"),
-    pl.std("wall_clock").name.suffix("_std"),
+    pl.mean("execution_time"),
+    pl.std("execution_time").name.suffix("_std"),
     pl.mean("instructions_per_cycle"),
     pl.std("instructions_per_cycle").name.suffix("_std"),
     pl.mean("cache_miss_rate"),
@@ -87,15 +87,15 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
-times = df.filter(part="Layout").select("test", "kind", "size", "wall_clock").partition_by("test", as_dict=True, include_key=False)
+times = df.filter(part="Layout").select("test", "kind", "size", "execution_time").partition_by("test", as_dict=True, include_key=False)
 
 ttest = {
     "size": summary.get_column("size").unique(maintain_order=True)
 }
 for (name, ), data in times.items():
     data_parts = data.partition_by("kind", as_dict=True, include_key=False)
-    one = data_parts.get(("SoA",)).select("size", time_SoA="wall_clock")
-    two = data_parts.get(("AoS",)).select(time_AoS="wall_clock")
+    one = data_parts.get(("SoA",)).select("size", time_SoA="execution_time")
+    two = data_parts.get(("AoS",)).select(time_AoS="execution_time")
     cmp = one.hstack(two)
 
     sizes = cmp.partition_by("size", maintain_order=True)
@@ -107,17 +107,17 @@ for (name, ), data in times.items():
     ttest[f"{name}-pvalue"] = [test.pvalue for test in tests]
 
 ttest = pl.from_dict(ttest)
-ttest.write_csv(fig_dir.joinpath("Layout-wall_clock-ttest.csv"))
+ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest.csv"))
 
-times = df.filter(part="ControlFlow").select("Scenario", "size", "wall_clock").partition_by("Scenario", as_dict=True, include_key=False)
+times = df.filter(part="ControlFlow").select("Scenario", "size", "execution_time").partition_by("Scenario", as_dict=True, include_key=False)
 
 ttest = {
     "size": summary.get_column("size").unique(maintain_order=True)
 }
 for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.items(), 2):
     if (name_1 == name_2): continue
-    one = data_1.select("size", time_1="wall_clock")
-    two = data_2.select(time_2="wall_clock")
+    one = data_1.select("size", time_1="execution_time")
+    two = data_2.select(time_2="execution_time")
     cmp = one.hstack(two)
 
     sizes = cmp.partition_by("size", maintain_order=True)
@@ -129,7 +129,7 @@ for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.
     ttest[f"{name_1}-{name_2}-pvalue"] = [test.pvalue for test in tests]
 
 ttest = pl.from_dict(ttest)
-ttest.write_csv(fig_dir.joinpath("ControlFlow-wall_clock-ttest.csv"))
+ttest.write_csv(fig_dir.joinpath("ControlFlow-execution_time-ttest.csv"))
 
 
 
@@ -207,9 +207,9 @@ cache_lines.extend([
 control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
 
 alt.layer(*cache_lines, *[
-    per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
+    per_size_line("", data, "execution_time", scale="log", extent="ci", color="Scenario", save=False) 
     for data in control_flow_tests
-]).save(fig_dir.joinpath("ControlFlow-wall_clock-ci.png"), scale_factor=4)
+]).save(fig_dir.joinpath("ControlFlow-execution_time-ci.png"), scale_factor=4)
 
 alt.layer(*cache_lines, *[
     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
@@ -230,9 +230,9 @@ alt.layer(*cache_lines, *[
 # layout_tests = df.filter(part="Layout").partition_by("test")
 
 # alt.layer(*cache_lines, *[
-#     per_size_line("", data, "wall_clock", scale="log", extent="ci", color="Scenario", save=False) 
+#     per_size_line("", data, "execution_time", scale="log", extent="ci", color="Scenario", save=False) 
 #     for data in layout_tests
-# ]).save(fig_dir.joinpath("Layout-wall_clock-ci.png"), scale_factor=4)
+# ]).save(fig_dir.joinpath("Layout-execution_time-ci.png"), scale_factor=4)
 
 # alt.layer(*cache_lines, *[
 #     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
@@ -256,7 +256,7 @@ for (s,), data in scenarios.items():
     print(s)
 
     for (col, opts) in [
-        ("wall_clock", {"scale": "log", "chart_layers": cache_lines}), 
+        ("execution_time", {"scale": "log", "chart_layers": cache_lines}), 
         ("instructions_per_cycle", {"chart_layers": cache_lines}), 
         ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
         ("branch_miss_rate", {"y_format": "%", "chart_layers": cache_lines})

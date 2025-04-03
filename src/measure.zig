@@ -5,7 +5,7 @@ const fd_t = std.posix.fd_t;
 const ReturnType = @import("common.zig").ReturnType;
 
 const Sample = struct {
-    wall_clock: u64,
+    execution_time: u64,
     cpu_cycles: u64,
     instructions: u64,
     cache_references: u64,
@@ -75,7 +75,7 @@ pub fn run(alloc: std.mem.Allocator, iterations: u32, comptime func: anytype, co
 
         // Stop counting
         _ = std.os.linux.ioctl(fds[0], PERF.EVENT_IOC.DISABLE, PERF.IOC_FLAG_GROUP);
-        sample.*.wall_clock = timer.read();
+        sample.*.execution_time = timer.read();
 
         // Collect counters
         inline for (0.., perf_counters) |i, counter| {
