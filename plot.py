@@ -1,8 +1,9 @@
 import argparse
+import itertools
 from pathlib import Path
-from typing import Optional
 import altair as alt
 import polars as pl
+import scipy.stats as stats 
 import glob
 
 ap = argparse.ArgumentParser()
@@ -85,6 +86,52 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 ).sort("size", "part", "test", "kind")
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
+
+times = df.filter(part="Layout").select("test", "kind", "size", "wall_clock").partition_by("test", as_dict=True, include_key=False)
+
+ttest = {
+    "size": summary.get_column("size").unique(maintain_order=True)
+}
+for (name, ), data in times.items():
+    data_parts = data.partition_by("kind", as_dict=True, include_key=False)
+    one = data_parts.get(("SoA",)).select("size", time_SoA="wall_clock")
+    two = data_parts.get(("AoS",)).select(time_AoS="wall_clock")
+    cmp = one.hstack(two)
+
+    sizes = cmp.partition_by("size", maintain_order=True)
+    tests = [
+        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_SoA"))
+        for size in sizes
+    ]
+    # ttest[f"{name}-stats"] = [test.statistic for test in tests]
+    ttest[f"{name}-pvalue"] = [test.pvalue for test in tests]
+
+ttest = pl.from_dict(ttest)
+ttest.write_csv(fig_dir.joinpath("Layout-wall_clock-ttest.csv"))
+
+times = df.filter(part="ControlFlow").select("Scenario", "size", "wall_clock").partition_by("Scenario", as_dict=True, include_key=False)
+
+ttest = {
+    "size": summary.get_column("size").unique(maintain_order=True)
+}
+for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.items(), 2):
+    if (name_1 == name_2): continue
+    one = data_1.select("size", time_1="wall_clock")
+    two = data_2.select(time_2="wall_clock")
+    cmp = one.hstack(two)
+
+    sizes = cmp.partition_by("size", maintain_order=True)
+    tests = [
+        stats.ttest_ind(size.get_column("time_1"), size.get_column("time_2"))
+        for size in sizes
+    ]
+    # ttest[f"{name_1}-{name_2}-stats"] = [test.statistic for test in tests]
+    ttest[f"{name_1}-{name_2}-pvalue"] = [test.pvalue for test in tests]
+
+ttest = pl.from_dict(ttest)
+ttest.write_csv(fig_dir.joinpath("ControlFlow-wall_clock-ttest.csv"))
+
+
 
 (df.with_columns(instructions_per_item=pl.col("instructions") / pl.col("size"))
     .group_by("part", "Scenario")
