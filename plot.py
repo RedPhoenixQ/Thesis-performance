@@ -111,27 +111,17 @@ for (name, ), data in times.items():
 ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
 ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
 
-times = df.filter(part="ControlFlow").select("Scenario", "size", "execution_time").partition_by("Scenario", as_dict=True, include_key=False)
-
-ttest = {
-    "size": sizes_ordered.cast(pl.String)
-}
-for (((name_1,), data_1), ((name_2,), data_2 )) in itertools.combinations(times.items(), 2):
-    if (name_1 == name_2): continue
-    one = data_1.select("size", time_1="execution_time")
-    two = data_2.select(time_2="execution_time")
-    cmp = one.hstack(two)
-
-    sizes = cmp.sort("size").partition_by("size", maintain_order=True)
-    tests = [
-        stats.ttest_ind(size.get_column("time_1"), size.get_column("time_2"), equal_var=False)
-        for size in sizes
-    ]
-    # ttest[f"{name_1}-{name_2}-stats"] = [test.statistic for test in tests]
-    ttest[f"{name_1} - {name_2}"] = [test.pvalue for test in tests]
-
-ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
-ttest.write_csv(fig_dir.joinpath("ControlFlow-execution_time-ttest-pvalue.csv"))
+times = df.filter(part="ControlFlow").select("Scenario", "size", "execution_time").partition_by("size", as_dict=True, include_key=False)
+anova_size = []
+anova_pvalue = []
+for (size, ), parts in times.items():
+    res = stats.f_oneway(*(data.get_column("execution_time") for data in parts.partition_by("Scenario")))
+    anova_size.append(size)
+    anova_pvalue.append(res.pvalue)
+pl.from_dict({
+    "size": anova_size,
+    "pvalue": anova_pvalue
+}).sort("size").write_csv(fig_dir.joinpath("ControlFlow-execution_time-anova.csv"))
 
 
 
