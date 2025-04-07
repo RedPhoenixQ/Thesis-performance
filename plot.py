@@ -87,12 +87,10 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
-sizes_ordered = summary.get_column("size").unique(maintain_order=True)
-
 times = df.filter(part="Layout").select("test", "kind", "size", "execution_time").partition_by("test", as_dict=True, include_key=False)
 
 ttest = {
-    "size": sizes_ordered.cast(pl.String)
+    "size": summary.get_column("size").unique(maintain_order=True).cast(pl.String)
 }
 for (name, ), data in times.items():
     data_parts = data.partition_by("kind", as_dict=True, include_key=False)
@@ -111,19 +109,28 @@ for (name, ), data in times.items():
 ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
 ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
 
-times = df.filter(part="ControlFlow").select("Scenario", "size", "execution_time").partition_by("size", as_dict=True, include_key=False)
-anova_size = []
-anova_pvalue = []
+times = (df.filter(part="ControlFlow")
+    .select("Scenario", "size", "execution_time")
+    .sort("size", "Scenario")
+    .partition_by("size", as_dict=True, include_key=False, maintain_order=True)
+)
+anova = {}
 for (size, ), parts in times.items():
     res = stats.f_oneway(*(data.get_column("execution_time") for data in parts.partition_by("Scenario")))
-    anova_size.append(size)
-    anova_pvalue.append(res.pvalue)
-pl.from_dict({
-    "size": anova_size,
-    "pvalue": anova_pvalue
-}).sort("size").write_csv(fig_dir.joinpath("ControlFlow-execution_time-anova.csv"))
+    anova[str(size)] = res.pvalue
+pl.from_dict(anova).write_csv(fig_dir.joinpath("ControlFlow-execution_time-anova.csv"))
 
 
+tukey = []
+for (size, ), parts in times.items():
+    scenarios = parts.partition_by("Scenario", as_dict=True, maintain_order=True)
+    keys = [key for (key,) in scenarios.keys()]
+    res = stats.tukey_hsd(*(data.get_column("execution_time") for data in scenarios.values()))
+    tukey.append({ "size": str(size), } | {
+        f"{keys[i]} - {keys[j]}": res.pvalue[i, j]
+        for (i,j) in itertools.combinations(range(len(keys)), 2)
+    })
+pl.from_dicts(tukey).transpose(include_header=True, header_name="Combinations", column_names="size").write_csv(fig_dir.joinpath("ControlFlow-execution_time-tukey.csv"))
 
 (df.with_columns(instructions_per_item=pl.col("instructions") / pl.col("size"))
     .group_by("part", "Scenario")
