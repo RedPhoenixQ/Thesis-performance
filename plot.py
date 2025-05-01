@@ -109,7 +109,7 @@ for (name, ), data in times.items():
 
     sizes = cmp.sort("size").partition_by("size", maintain_order=True)
     tests = [
-        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_SoA"), equal_var=False)
+        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_AoS"), equal_var=False)
         for size in sizes
     ]
     # ttest[f"{name}-stats"] = [test.statistic for test in tests]
