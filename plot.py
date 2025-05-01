@@ -29,6 +29,13 @@ for name in filenames:
         split.pop()
     [test, kind, size] = split
     df = pl.read_csv(data_dir.joinpath( name), skip_rows_after_header=5)
+    match test:
+        case "DynamicDispatch":
+            test = "DD"
+        case "EnumTaggedDispatch":
+            test = "ETD"
+        case "ExistentialProcessing":
+            test = "EP"
     df = df.with_columns(
         pl.lit(part).alias("part"),
         pl.lit(test).alias("test"),
@@ -75,6 +82,8 @@ df = df.with_columns(
 # alt.layer(points, ).save(fig_dir.joinpath("cache_miss_rate-scatter.png"), scale_factor=4)
 
 summary = df.group_by("size", "part", "test", "kind").agg(
+    pl.mean("cpu_cycles"),
+    pl.std("cpu_cycles").name.suffix("_std"),
     pl.mean("execution_time"),
     pl.std("execution_time").name.suffix("_std"),
     pl.mean("instructions_per_cycle"),
