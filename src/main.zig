@@ -19,13 +19,13 @@ pub fn main() !void {
     // TODO: Make these input arguments
     const out_dir = "./output";
     const iterations = 100;
-    var seed: u64 = @intCast(200);
+    var seed: u64 = @intCast(300);
 
     var dir = try cwd.makeOpenPath(try std.fmt.bufPrint(&buf, "{s}/{d}-{d}/data", .{ out_dir, now, seed }), .{});
     defer dir.close();
 
     var size: usize = 1 << 3;
-    while (size < 1024 * 1024 * 2) : (size <<= 1) {
+    while (size < 1024 * 1024 * 4) : (size *= 2) {
         seed += 1;
         // Layout tests
         inline for (.{
@@ -72,7 +72,7 @@ pub fn main() !void {
             try measure.writeToCSV(samples_soa, file_soa.writer().any());
             file_soa.close();
 
-            std.testing.expectEqualDeep(returns_aos, returns_soa) catch unreachable;
+            std.testing.expectEqualDeep(returns_aos, returns_soa) catch @panic(@typeName(Test));
         }
         inline for (.{
             .{ ControlFlow.DynamicDispatch, .unsorted },
