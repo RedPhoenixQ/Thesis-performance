@@ -101,6 +101,9 @@ times = df.filter(part="Layout").select("test", "kind", "size", "execution_time"
 ttest = {
     "size": summary.get_column("size").unique(maintain_order=True).cast(pl.String)
 }
+diff = {
+    "size": summary.get_column("size").unique(maintain_order=True).cast(pl.String)
+}
 for (name, ), data in times.items():
     data_parts = data.partition_by("kind", as_dict=True, include_key=False)
     one = data_parts.get(("SoA",)).select("size", time_SoA="execution_time")
@@ -115,8 +118,16 @@ for (name, ), data in times.items():
     # ttest[f"{name}-stats"] = [test.statistic for test in tests]
     ttest[name] = [test.pvalue for test in tests]
 
+    d = cmp.group_by("size").agg((pl.mean("time_AoS") / pl.mean("time_SoA") - pl.lit(1)).alias("diff"))
+    print(d)
+    diff[name] = d.get_column("diff").to_list()
+
 ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
 ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
+
+diff = pl.from_dict(diff)
+diff_trans = diff.transpose(include_header=True, header_name="Combinations", column_names="size")
+diff_trans.write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
 
 times = (df.filter(part="ControlFlow")
     .select("Scenario", "size", "execution_time")
@@ -171,14 +182,14 @@ def per_size_bar(name: str, source: pl.DataFrame, col: str, agg="mean", extent="
     )
     (line + error_bars).save(fig_dir.joinpath(f"{name}-{col}-bar-{extent}.png"), scale_factor=4)
 
-def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, color="kind", save=True, chart_layers=[]):
+def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, y_title=None, color="kind", save=True, chart_layers=[]):
     error_bars = alt.Chart(source).mark_errorband(extent=extent).encode(
         alt.X("size", type="quantitative", title="Size", scale=alt.Scale(type="log", base=2, paddingOuter=0)),
         alt.Y(col,
             aggregate=agg,
             scale=alt.Scale(type=scale, base=2), 
             axis=alt.Axis(format=y_format),
-            title=col.replace("_", " ").capitalize(),
+            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
         ),
         color=color,
     )
@@ -188,7 +199,7 @@ def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent=
             aggregate=agg,
             scale=alt.Scale(type=scale, base=2), 
             axis=alt.Axis(format=y_format), 
-            title=col.replace("_", " ").capitalize(),
+            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
         ),
         color=color,
     )
@@ -210,6 +221,11 @@ cache_lines.extend([
     for i, line in enumerate(cache_lines, 1)
 ])
 
+
+alt.layer(*cache_lines, *[
+    per_size_line("", diff.with_columns(pl.lit(column).alias("test")), column, color="test", y_format="%", y_title="SoA improvement over AoS", save=False) 
+    for column in diff.columns[1:]
+]).save(fig_dir.joinpath("Layout-execution_time-diff.png"), scale_factor=4)
 
 
 control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
