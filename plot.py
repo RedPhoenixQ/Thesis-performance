@@ -230,25 +230,26 @@ alt.layer(*cache_lines, *[
 
 control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
 
-alt.layer(*cache_lines, *[
-    per_size_line("", data, "execution_time", scale="log", extent="ci", color="Scenario", save=False) 
-    for data in control_flow_tests
-]).save(fig_dir.joinpath("ControlFlow-execution_time-ci.png"), scale_factor=4)
+for extent in ["ci", "stdev"]:
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "execution_time", scale="log", extent=extent, color="Scenario", save=False) 
+        for data in control_flow_tests
+    ]).save(fig_dir.joinpath(f"ControlFlow-execution_time-{extent}.png"), scale_factor=4)
 
-alt.layer(*cache_lines, *[
-    per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
-    for data in control_flow_tests
-]).save(fig_dir.joinpath("ControlFlow-instructions_per_cycle-ci.png"), scale_factor=4)
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "instructions_per_cycle", extent=extent, color="Scenario", save=False) 
+        for data in control_flow_tests
+    ]).save(fig_dir.joinpath(f"ControlFlow-instructions_per_cycle-{extent}.png"), scale_factor=4)
 
-alt.layer(*cache_lines, *[
-    per_size_line("", data, "cache_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
-    for data in control_flow_tests
-]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-ci.png"), scale_factor=4)
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
+        for data in control_flow_tests
+    ]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-{extent}.png"), scale_factor=4)
 
-alt.layer(*cache_lines, *[
-    per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
-    for data in control_flow_tests
-]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-ci.png"), scale_factor=4)
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "branch_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
+        for data in control_flow_tests
+    ]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-{extent}.png"), scale_factor=4)
 
 
 # layout_tests = df.filter(part="Layout").partition_by("test")
