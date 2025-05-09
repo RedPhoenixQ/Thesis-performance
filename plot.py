@@ -228,9 +228,27 @@ alt.layer(*cache_lines, *[
 ]).save(fig_dir.joinpath("Layout-execution_time-diff.png"), scale_factor=4)
 
 
+layout_tests = df.filter(part="Layout").partition_by("test")
 control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
 
 for extent in ["ci", "stdev"]:
+    # Layout
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
+        for data in layout_tests
+    ]).save(fig_dir.joinpath(f"Layout-cache_miss_rate-{extent}.png"), scale_factor=4)
+
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "execution_time", scale="log", extent=extent, color="Scenario", save=False) 
+        for data in layout_tests
+    ]).save(fig_dir.joinpath(f"Layout-execution_time-{extent}.png"), scale_factor=4)
+
+    alt.layer(*cache_lines, *[
+        per_size_line("", data, "instructions_per_cycle", extent=extent, color="Scenario", save=False) 
+        for data in layout_tests
+    ]).save(fig_dir.joinpath(f"Layout-instructions_per_cycle-{extent}.png"), scale_factor=4)
+
+    # Control flow
     alt.layer(*cache_lines, *[
         per_size_line("", data, "execution_time", scale="log", extent=extent, color="Scenario", save=False) 
         for data in control_flow_tests
@@ -276,17 +294,17 @@ for extent in ["ci", "stdev"]:
 
 
 
-scenarios = df.partition_by("test", include_key=False, as_dict=True)
-for (s,), data in scenarios.items():
-    print(s)
+# scenarios = df.partition_by("test", include_key=False, as_dict=True)
+# for (s,), data in scenarios.items():
+#     print(s)
 
-    for (col, opts) in [
-        ("execution_time", {"scale": "log", "chart_layers": cache_lines}), 
-        ("instructions_per_cycle", {"chart_layers": cache_lines}), 
-        ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
-        ("branch_miss_rate", {"y_format": "%", "chart_layers": cache_lines})
-        ]:
-        per_size_bar(s, data, col, **opts)
-        per_size_bar(s, data, col, **opts, extent="ci")
-        per_size_line(s, data, col, **opts)
-        per_size_line(s, data, col, **opts, extent="ci")
+#     for (col, opts) in [
+#         ("execution_time", {"scale": "log", "chart_layers": cache_lines}), 
+#         ("instructions_per_cycle", {"chart_layers": cache_lines}), 
+#         ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
+#         ("branch_miss_rate", {"y_format": "%", "chart_layers": cache_lines})
+#         ]:
+#         per_size_bar(s, data, col, **opts)
+#         per_size_bar(s, data, col, **opts, extent="ci")
+#         per_size_line(s, data, col, **opts)
+#         per_size_line(s, data, col, **opts, extent="ci")
