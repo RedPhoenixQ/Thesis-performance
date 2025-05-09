@@ -118,7 +118,7 @@ for (name, ), data in times.items():
     # ttest[f"{name}-stats"] = [test.statistic for test in tests]
     ttest[name] = [test.pvalue for test in tests]
 
-    d = cmp.group_by("size").agg((pl.mean("time_AoS") / pl.mean("time_SoA") - pl.lit(1)).alias("diff"))
+    d = cmp.group_by("size").agg(((pl.mean("time_AoS") - pl.mean("time_SoA")) / pl.mean("time_AoS")).alias("diff"))
     print(d)
     diff[name] = d.get_column("diff").to_list()
 
