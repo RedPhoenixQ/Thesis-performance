@@ -59,28 +59,6 @@ df = df.with_columns(
         .alias("branch_miss_rate"),
 )
 
-# points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
-#     alt.X("execution_time", scale=alt.Scale(type="log")),
-#     alt.Y("branch_miss_rate"),
-#     color="Scenario",
-# )
-# regressions = [points.transform_regression("instructions_per_cycle", "branch_miss_rate", groupby=["Scenario"], method="poly", order=4)
-#     .mark_line()
-#     .encode(color="Scenario")
-# ]
-# alt.layer(points,).save(fig_dir.joinpath("branch_miss_rate-scatter.png"), scale_factor=4)
-
-# points = alt.Chart(df.filter(part="ControlFlow")).mark_point().encode(
-#     alt.X("execution_time", scale=alt.Scale(type="log")),
-#     alt.Y("cache_miss_rate"),
-#     color="Scenario",
-# )
-# regressions = [points.transform_regression("instructions_per_cycle", "cache_miss_rate", groupby=["Scenario"], method="linear")
-#     .mark_line()
-#     .encode(color="Scenario")
-# ]
-# alt.layer(points, ).save(fig_dir.joinpath("cache_miss_rate-scatter.png"), scale_factor=4)
-
 summary = df.group_by("size", "part", "test", "kind").agg(
     pl.mean("cpu_cycles"),
     pl.std("cpu_cycles").name.suffix("_std"),
@@ -199,9 +177,12 @@ per_size_line("Layout-execution_time", diff, "diff", color="test", y_format="%",
 
 diff.select("test", "size", "diff").write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
 
-ttest = layout_diff.sort("test", "size").group_by("test", "size", maintain_order=True).agg(
-    pvalue=pl.struct(SoA="SoA", AoS="AoS")
-        .map_batches(lambda s: stats.ttest_ind(s.struct.field("SoA").to_numpy(), s.struct.field("AoS").to_numpy(), equal_var=False).pvalue, returns_scalar=True)
+ttest = layout_diff.sort("test", "size").group_by("test", "size", maintain_order=True).map_groups(
+    lambda group: pl.from_dict({
+        "test": group.get_column("test").first(),
+        "size": group.get_column("size").first(),
+        "pvalue": stats.ttest_ind(group.get_column("SoA"), group.get_column("AoS"), equal_var=False).pvalue
+    })
 )
 ttest.pivot("size", index="test", values="pvalue").write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
 
