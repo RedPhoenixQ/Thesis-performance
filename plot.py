@@ -6,6 +6,56 @@ import polars as pl
 import scipy.stats as stats 
 import glob
 
+def per_size_bar(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, chart_layers=None):
+    error_bars = alt.Chart(source).mark_errorbar(extent=extent, ticks=True).encode(
+        alt.X("size", type="ordinal", title="Size"),
+        alt.Y(col,
+            aggregate=agg,
+            scale=alt.Scale(type=scale, base=2), 
+            axis=alt.Axis(format=y_format),
+            title=col.replace("_", " ").capitalize(),
+        ),
+        xOffset="kind",
+    )
+    line = alt.Chart(source).mark_bar().encode(
+        alt.X("size", type="ordinal", title="Size"),
+        alt.Y(col, 
+            aggregate=agg,
+            scale=alt.Scale(type=scale, base=2), 
+            axis=alt.Axis(format=y_format),
+            title=col.replace("_", " ").capitalize(),
+        ),
+        xOffset="kind",
+        color="kind",
+    )
+    (line + error_bars).save(fig_dir.joinpath(f"{name}-{col}-bar-{extent}.png"), scale_factor=4)
+
+def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, y_title=None, color="kind", save=True, chart_layers=[]):
+    error_bars = alt.Chart(source).mark_errorband(extent=extent).encode(
+        alt.X("size", type="quantitative", title="Size", scale=alt.Scale(type="log", base=2, paddingOuter=0)),
+        alt.Y(col,
+            aggregate=agg,
+            scale=alt.Scale(type=scale, base=2), 
+            axis=alt.Axis(format=y_format),
+            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
+        ),
+        color=color,
+    )
+    line = alt.Chart(source).mark_line().encode(
+        alt.X("size", type="quantitative", title="Size", scale=alt.Scale(type="log", base=2)),
+        alt.Y(col,
+            aggregate=agg,
+            scale=alt.Scale(type=scale, base=2), 
+            axis=alt.Axis(format=y_format), 
+            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
+        ),
+        color=color,
+    )
+    chart = alt.layer(*chart_layers, line, error_bars)
+    if (save):
+        chart.save(fig_dir.joinpath(f"{name}-{col}-line-{extent}.png"), scale_factor=4)
+    return chart
+
 ap = argparse.ArgumentParser()
 ap.add_argument("directory", type=Path)
 args = ap.parse_args()
@@ -57,9 +107,10 @@ df = df.with_columns(
         .then((pl.col("branch_misses") / pl.col("branch_instructions")))
         .otherwise(0)
         .alias("branch_miss_rate"),
-)
+).sort("size", "part", "test", "kind")
 
-summary = df.group_by("size", "part", "test", "kind").agg(
+# Summary stats
+df.group_by("size", "part", "test", "kind", maintain_order=True).agg(
     pl.mean("cpu_cycles"),
     pl.std("cpu_cycles").name.suffix("_std"),
     pl.mean("execution_time"),
@@ -70,21 +121,23 @@ summary = df.group_by("size", "part", "test", "kind").agg(
     pl.std("cache_miss_rate").name.suffix("_std"),
     pl.mean("branch_miss_rate"),
     pl.std("branch_miss_rate").name.suffix("_std"),
-).sort("size", "part", "test", "kind")
+).write_csv(fig_dir.joinpath("summary.csv"))
 
-summary.write_csv(fig_dir.joinpath("summary.csv"))
+# Instructions per item stats
+(df.with_columns(instructions_per_item=pl.col("instructions") / pl.col("size"))
+    .group_by("part", "Scenario", maintain_order=True)
+    .agg(pl.mean("instructions_per_item"), pl.std("instructions_per_item").name.suffix("_std"))
+).write_csv(fig_dir.joinpath("instructions.csv"))
 
-times = (df.filter(part="ControlFlow")
-    .select("Scenario", "size", "execution_time")
-    .sort("size", "Scenario")
-    .partition_by("size", as_dict=True, include_key=False, maintain_order=True)
-)
+layout_tests = df.filter(part="Layout")
+control_flow_tests = df.filter(part="ControlFlow")
+
+times = control_flow_tests.select("Scenario", "size", "execution_time").partition_by("size", as_dict=True, include_key=False, maintain_order=True)
 anova = {}
 for (size, ), parts in times.items():
     res = stats.f_oneway(*(data.get_column("execution_time") for data in parts.partition_by("Scenario")))
     anova[str(size)] = res.pvalue
 pl.from_dict(anova).write_csv(fig_dir.joinpath("ControlFlow-execution_time-anova.csv"))
-
 
 tukey = []
 for (size, ), parts in times.items():
@@ -97,64 +150,7 @@ for (size, ), parts in times.items():
     })
 pl.from_dicts(tukey).transpose(include_header=True, header_name="Combinations", column_names="size").write_csv(fig_dir.joinpath("ControlFlow-execution_time-tukey.csv"))
 
-(df.with_columns(instructions_per_item=pl.col("instructions") / pl.col("size"))
-    .group_by("part", "Scenario")
-    .agg(pl.mean("instructions_per_item"), pl.std("instructions_per_item").name.suffix("_std"))
-    .sort("part", "Scenario")
-).write_csv(fig_dir.joinpath("instructions.csv"))
-
-def per_size_bar(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, chart_layers=None):
-    error_bars = alt.Chart(source).mark_errorbar(extent=extent, ticks=True).encode(
-        alt.X("size", type="ordinal", title="Size"),
-        alt.Y(col,
-            aggregate=agg,
-            scale=alt.Scale(type=scale, base=2), 
-            axis=alt.Axis(format=y_format),
-            title=col.replace("_", " ").capitalize(),
-        ),
-        xOffset="kind",
-    )
-    line = alt.Chart(source).mark_bar().encode(
-        alt.X("size", type="ordinal", title="Size"),
-        alt.Y(col, 
-            aggregate=agg,
-            scale=alt.Scale(type=scale, base=2), 
-            axis=alt.Axis(format=y_format),
-            title=col.replace("_", " ").capitalize(),
-        ),
-        xOffset="kind",
-        color="kind",
-    )
-    (line + error_bars).save(fig_dir.joinpath(f"{name}-{col}-bar-{extent}.png"), scale_factor=4)
-
-def per_size_line(name: str, source: pl.DataFrame, col: str, agg="mean", extent="stdev", scale=alt.Undefined, y_format=alt.Undefined, y_title=None, color="kind", save=True, chart_layers=[]):
-    error_bars = alt.Chart(source).mark_errorband(extent=extent).encode(
-        alt.X("size", type="quantitative", title="Size", scale=alt.Scale(type="log", base=2, paddingOuter=0)),
-        alt.Y(col,
-            aggregate=agg,
-            scale=alt.Scale(type=scale, base=2), 
-            axis=alt.Axis(format=y_format),
-            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
-        ),
-        color=color,
-    )
-    line = alt.Chart(source).mark_line().encode(
-        alt.X("size", type="quantitative", title="Size", scale=alt.Scale(type="log", base=2)),
-        alt.Y(col,
-            aggregate=agg,
-            scale=alt.Scale(type=scale, base=2), 
-            axis=alt.Axis(format=y_format), 
-            title=col.replace("_", " ").capitalize() if y_title is None else y_title,
-        ),
-        color=color,
-    )
-    chart = alt.layer(*chart_layers, line, error_bars)
-    if (save):
-        chart.save(fig_dir.joinpath(f"{name}-{col}-line-{extent}.png"), scale_factor=4)
-    return chart
-
-
-
+# Indicator line for cache sizes
 cache_lines = [
     alt.Chart(pl.from_dict({"x": cache_size // 16}))
         .mark_rule(strokeDash=[12, 6], size=2)
@@ -166,10 +162,6 @@ cache_lines.extend([
     for i, line in enumerate(cache_lines, 1)
 ])
 
-
-layout_tests = df.filter(part="Layout")
-control_flow_tests = df.filter(part="ControlFlow")
-
 layout_kinds = layout_tests.select("test", "kind", "execution_time", "size").partition_by("kind", as_dict=True, maintain_order=True)
 layout_diff = layout_kinds.get(("AoS",)).rename({"execution_time": "AoS"}).hstack([layout_kinds.get(("SoA",)).get_column("execution_time").alias("SoA")])
 diff = (layout_diff.group_by("test", "size").agg(diff=pl.mean("SoA") / pl.mean("AoS") - pl.lit(1)))
@@ -177,14 +169,14 @@ per_size_line("Layout-execution_time", diff, "diff", color="test", y_format="%",
 
 diff.select("test", "size", "diff").write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
 
-ttest = layout_diff.sort("test", "size").group_by("test", "size", maintain_order=True).map_groups(
+# T-test AoS vs SoA
+layout_diff.sort("test", "size").group_by("test", "size", maintain_order=True).map_groups(
     lambda group: pl.from_dict({
         "test": group.get_column("test").first(),
         "size": group.get_column("size").first(),
         "pvalue": stats.ttest_ind(group.get_column("SoA"), group.get_column("AoS"), equal_var=False).pvalue
     })
-)
-ttest.pivot("size", index="test", values="pvalue").write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
+).pivot("size", index="test", values="pvalue").write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
 
 diff = control_flow_tests.join(
     control_flow_tests.filter(Scenario="DD-unsorted").group_by("size").agg(DD_mean=pl.mean("execution_time")), 
