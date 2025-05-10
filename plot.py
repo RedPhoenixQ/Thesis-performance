@@ -96,39 +96,6 @@ summary = df.group_by("size", "part", "test", "kind").agg(
 
 summary.write_csv(fig_dir.joinpath("summary.csv"))
 
-times = df.filter(part="Layout").select("test", "kind", "size", "execution_time").partition_by("test", as_dict=True, include_key=False)
-
-ttest = {
-    "size": summary.get_column("size").unique(maintain_order=True).cast(pl.String)
-}
-diff = {
-    "size": summary.get_column("size").unique(maintain_order=True).cast(pl.String)
-}
-for (name, ), data in times.items():
-    data_parts = data.partition_by("kind", as_dict=True, include_key=False)
-    one = data_parts.get(("SoA",)).select("size", time_SoA="execution_time")
-    two = data_parts.get(("AoS",)).select(time_AoS="execution_time")
-    cmp = one.hstack(two)
-
-    sizes = cmp.sort("size").partition_by("size", maintain_order=True)
-    tests = [
-        stats.ttest_ind(size.get_column("time_SoA"), size.get_column("time_AoS"), equal_var=False)
-        for size in sizes
-    ]
-    # ttest[f"{name}-stats"] = [test.statistic for test in tests]
-    ttest[name] = [test.pvalue for test in tests]
-
-    d = cmp.group_by("size").agg(((pl.mean("time_AoS") - pl.mean("time_SoA")) / pl.mean("time_AoS")).alias("diff"))
-    print(d)
-    diff[name] = d.get_column("diff").to_list()
-
-ttest = pl.from_dict(ttest).transpose(include_header=True, header_name="Combinations", column_names="size")
-ttest.write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
-
-diff = pl.from_dict(diff)
-diff_trans = diff.transpose(include_header=True, header_name="Combinations", column_names="size")
-diff_trans.write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
-
 times = (df.filter(part="ControlFlow")
     .select("Scenario", "size", "execution_time")
     .sort("size", "Scenario")
@@ -222,89 +189,36 @@ cache_lines.extend([
 ])
 
 
-alt.layer(*cache_lines, *[
-    per_size_line("", diff.with_columns(pl.lit(column).alias("test")), column, color="test", y_format="%", y_title="SoA improvement over AoS", save=False) 
-    for column in diff.columns[1:]
-]).save(fig_dir.joinpath("Layout-execution_time-diff.png"), scale_factor=4)
+layout_tests = df.filter(part="Layout")
+control_flow_tests = df.filter(part="ControlFlow")
 
+layout_kinds = layout_tests.select("test", "kind", "execution_time", "size").partition_by("kind", as_dict=True, maintain_order=True)
+layout_diff = layout_kinds.get(("AoS",)).rename({"execution_time": "AoS"}).hstack([layout_kinds.get(("SoA",)).get_column("execution_time").alias("SoA")])
+diff = (layout_diff.group_by("test", "size").agg(diff=pl.mean("SoA") / pl.mean("AoS") - pl.lit(1)))
+per_size_line("Layout-execution_time", diff, "diff", color="test", y_format="%", y_title="SoA execution time compared to AoS", chart_layers=cache_lines)
 
-layout_tests = df.filter(part="Layout").partition_by("test")
-control_flow_tests = df.filter(part="ControlFlow").partition_by("test")
+diff.select("test", "size", "diff").write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
+
+ttest = layout_diff.sort("test", "size").group_by("test", "size", maintain_order=True).agg(
+    pvalue=pl.struct(SoA="SoA", AoS="AoS")
+        .map_batches(lambda s: stats.ttest_ind(s.struct.field("SoA").to_numpy(), s.struct.field("AoS").to_numpy(), equal_var=False).pvalue, returns_scalar=True)
+)
+ttest.pivot("size", index="test", values="pvalue").write_csv(fig_dir.joinpath("Layout-execution_time-ttest-pvalue.csv"))
+
+diff = control_flow_tests.join(
+    control_flow_tests.filter(Scenario="DD-unsorted").group_by("size").agg(DD_mean=pl.mean("execution_time")), 
+    on="size"
+).group_by("Scenario", "size").agg(diff=pl.mean("execution_time") / pl.first("DD_mean") - pl.lit(1))
+per_size_line("ControlFlow-execution_time", diff, "diff", color="Scenario", y_format="%", chart_layers=cache_lines)
 
 for extent in ["ci", "stdev"]:
     # Layout
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
-        for data in layout_tests
-    ]).save(fig_dir.joinpath(f"Layout-cache_miss_rate-{extent}.png"), scale_factor=4)
-
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "execution_time", scale="log", extent=extent, color="Scenario", save=False) 
-        for data in layout_tests
-    ]).save(fig_dir.joinpath(f"Layout-execution_time-{extent}.png"), scale_factor=4)
-
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "instructions_per_cycle", extent=extent, color="Scenario", save=False) 
-        for data in layout_tests
-    ]).save(fig_dir.joinpath(f"Layout-instructions_per_cycle-{extent}.png"), scale_factor=4)
+    per_size_line("Layout", layout_tests, "execution_time", scale="log", extent=extent, color="Scenario", chart_layers=cache_lines) 
+    per_size_line("Layout", layout_tests, "instructions_per_cycle", extent=extent, color="Scenario", chart_layers=cache_lines) 
+    per_size_line("Layout", layout_tests, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", chart_layers=cache_lines) 
 
     # Control flow
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "execution_time", scale="log", extent=extent, color="Scenario", save=False) 
-        for data in control_flow_tests
-    ]).save(fig_dir.joinpath(f"ControlFlow-execution_time-{extent}.png"), scale_factor=4)
-
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "instructions_per_cycle", extent=extent, color="Scenario", save=False) 
-        for data in control_flow_tests
-    ]).save(fig_dir.joinpath(f"ControlFlow-instructions_per_cycle-{extent}.png"), scale_factor=4)
-
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
-        for data in control_flow_tests
-    ]).save(fig_dir.joinpath(f"ControlFlow-cache_miss_rate-{extent}.png"), scale_factor=4)
-
-    alt.layer(*cache_lines, *[
-        per_size_line("", data, "branch_miss_rate", y_format="%", extent=extent, color="Scenario", save=False) 
-        for data in control_flow_tests
-    ]).save(fig_dir.joinpath(f"ControlFlow-branch_miss_rate-{extent}.png"), scale_factor=4)
-
-
-# layout_tests = df.filter(part="Layout").partition_by("test")
-
-# alt.layer(*cache_lines, *[
-#     per_size_line("", data, "execution_time", scale="log", extent="ci", color="Scenario", save=False) 
-#     for data in layout_tests
-# ]).save(fig_dir.joinpath("Layout-execution_time-ci.png"), scale_factor=4)
-
-# alt.layer(*cache_lines, *[
-#     per_size_line("", data, "instructions_per_cycle", extent="ci", color="Scenario", save=False) 
-#     for data in layout_tests
-# ]).save(fig_dir.joinpath("Layout-instructions_per_cycle-ci.png"), scale_factor=4)
-
-# alt.layer(*cache_lines, *cache_lines, *[
-#     per_size_line("", data, "cache_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
-#     for data in layout_tests
-# ]).save(fig_dir.joinpath(f"Layout-cache_miss_rate-ci.png"), scale_factor=4)
-
-# alt.layer(*cache_lines, *[
-#     per_size_line("", data, "branch_miss_rate", y_format="%", extent="ci", color="Scenario", save=False) 
-#     for data in layout_tests
-# ]).save(fig_dir.joinpath(f"Layout-branch_miss_rate-ci.png"), scale_factor=4)
-
-
-
-# scenarios = df.partition_by("test", include_key=False, as_dict=True)
-# for (s,), data in scenarios.items():
-#     print(s)
-
-#     for (col, opts) in [
-#         ("execution_time", {"scale": "log", "chart_layers": cache_lines}), 
-#         ("instructions_per_cycle", {"chart_layers": cache_lines}), 
-#         ("cache_miss_rate", {"y_format": "%", "chart_layers": cache_lines}), 
-#         ("branch_miss_rate", {"y_format": "%", "chart_layers": cache_lines})
-#         ]:
-#         per_size_bar(s, data, col, **opts)
-#         per_size_bar(s, data, col, **opts, extent="ci")
-#         per_size_line(s, data, col, **opts)
-#         per_size_line(s, data, col, **opts, extent="ci")
+    per_size_line("ControlFlow", control_flow_tests, "execution_time", scale="log", extent=extent, color="Scenario", chart_layers=cache_lines)
+    per_size_line("ControlFlow", control_flow_tests, "instructions_per_cycle", extent=extent, color="Scenario", chart_layers=cache_lines) 
+    per_size_line("ControlFlow", control_flow_tests, "cache_miss_rate", y_format="%", extent=extent, color="Scenario", chart_layers=cache_lines) 
+    per_size_line("ControlFlow", control_flow_tests, "branch_miss_rate", y_format="%", extent=extent, color="Scenario", chart_layers=cache_lines) 
