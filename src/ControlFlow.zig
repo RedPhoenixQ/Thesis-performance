@@ -45,6 +45,9 @@ const Types = struct {
             y: f32,
             z: f32,
         },
+        comptime {
+            std.debug.assert(@sizeOf(Self) == 4 * 6);
+        }
 
         const Self = @This();
 
@@ -92,6 +95,9 @@ const Types = struct {
         },
 
         const Self = @This();
+        comptime {
+            std.debug.assert(@sizeOf(Self) == 4 * 4);
+        }
 
         const vtable: DynamicDispatch.Dyn.VTable = .{
             .update = dyn_update,
@@ -136,6 +142,9 @@ const Types = struct {
         },
 
         const Self = @This();
+        comptime {
+            std.debug.assert(@sizeOf(Self) == 8 * 6);
+        }
 
         const vtable: DynamicDispatch.Dyn.VTable = .{
             .update = dyn_update,
