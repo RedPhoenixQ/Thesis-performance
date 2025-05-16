@@ -132,6 +132,70 @@ df.group_by("number_of_items", "part", "test", "kind", maintain_order=True).agg(
 layout_tests = df.filter(part="Layout")
 control_flow_tests = df.filter(part="ControlFlow")
 
+correlation = []
+for (Scenario,), data in df.partition_by("Scenario", as_dict=True, maintain_order=True).items():
+    pearson = stats.pearsonr(data.get_column("execution_time"), data.get_column("cache_miss_rate"))
+    spearman = stats.spearmanr(data.get_column("execution_time"), data.get_column("cache_miss_rate"))
+    kendall = stats.kendalltau(data.get_column("execution_time"), data.get_column("cache_miss_rate"))
+    correlation.append({
+        "Scenario": Scenario,
+        "pearson_p": pearson.pvalue,
+        "pearson_stat": pearson.statistic,
+        "spearman_p": spearman.pvalue,
+        "spearman_stat": spearman.statistic,
+        "kendall_p": kendall.pvalue,
+        "kendall_stat": kendall.statistic,
+    })
+pl.from_dicts(correlation).write_csv(fig_dir.joinpath("Correlation-cache_miss_rate-execution_time.csv"))
+
+correlation = []
+for (Scenario,), data in df.partition_by("Scenario", as_dict=True, maintain_order=True).items():
+    pearson = stats.pearsonr(data.get_column("execution_time"), data.get_column("branch_miss_rate"))
+    spearman = stats.spearmanr(data.get_column("execution_time"), data.get_column("branch_miss_rate"))
+    kendall = stats.kendalltau(data.get_column("execution_time"), data.get_column("branch_miss_rate"))
+    correlation.append({
+        "Scenario": Scenario,
+        "pearson_p": pearson.pvalue,    
+        "pearson_stat": pearson.statistic,
+        "spearman_p": spearman.pvalue,
+        "spearman_stat": spearman.statistic,
+        "kendall_p": kendall.pvalue,
+        "kendall_stat": kendall.statistic,
+    })
+pl.from_dicts(correlation).write_csv(fig_dir.joinpath("Correlation-branch_miss_rate-execution_time.csv"))
+
+correlation = []
+for (Scenario,), data in df.partition_by("Scenario", as_dict=True, maintain_order=True).items():
+    pearson = stats.pearsonr(data.get_column("instructions_per_cycle"), data.get_column("cache_miss_rate"))
+    spearman = stats.spearmanr(data.get_column("instructions_per_cycle"), data.get_column("cache_miss_rate"))
+    kendall = stats.kendalltau(data.get_column("instructions_per_cycle"), data.get_column("cache_miss_rate"))
+    correlation.append({
+        "Scenario": Scenario,
+        "pearson_p": pearson.pvalue,
+        "pearson_stat": pearson.statistic,
+        "spearman_p": spearman.pvalue,
+        "spearman_stat": spearman.statistic,
+        "kendall_p": kendall.pvalue,
+        "kendall_stat": kendall.statistic,
+    })
+pl.from_dicts(correlation).write_csv(fig_dir.joinpath("Correlation-cache_miss_rate-IPC.csv"))
+
+correlation = []
+for (Scenario,), data in df.partition_by("Scenario", as_dict=True, maintain_order=True).items():
+    pearson = stats.pearsonr(data.get_column("instructions_per_cycle"), data.get_column("branch_miss_rate"))
+    spearman = stats.spearmanr(data.get_column("instructions_per_cycle"), data.get_column("branch_miss_rate"))
+    kendall = stats.kendalltau(data.get_column("instructions_per_cycle"), data.get_column("branch_miss_rate"))
+    correlation.append({
+        "Scenario": Scenario,
+        "pearson_p": pearson.pvalue,
+        "pearson_stat": pearson.statistic,
+        "spearman_p": spearman.pvalue,
+        "spearman_stat": spearman.statistic,
+        "kendall_p": kendall.pvalue,
+        "kendall_stat": kendall.statistic,
+    })
+pl.from_dicts(correlation).write_csv(fig_dir.joinpath("Correlation-branch_miss_rate-IPC.csv"))
+
 times = control_flow_tests.select("Scenario", "number_of_items", "execution_time").partition_by("number_of_items", as_dict=True, include_key=False, maintain_order=True)
 anova = {}
 for (num_items, ), parts in times.items():
