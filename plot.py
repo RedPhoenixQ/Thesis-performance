@@ -228,7 +228,7 @@ cache_lines.extend([
 
 layout_kinds = layout_tests.select("test", "kind", "execution_time", "number_of_items").partition_by("kind", as_dict=True, maintain_order=True)
 layout_diff = layout_kinds.get(("AoS",)).rename({"execution_time": "AoS"}).hstack([layout_kinds.get(("SoA",)).get_column("execution_time").alias("SoA")])
-diff = (layout_diff.group_by("test", "number_of_items").agg(diff=pl.mean("SoA") / pl.mean("AoS") - pl.lit(1)))
+diff = (layout_diff.group_by("test", "number_of_items").agg(diff=pl.lit(1) - pl.mean("SoA") / pl.mean("AoS")))
 per_size_line("Layout-execution_time", diff, "diff", color="test", y_format="%", y_title="SoA execution time compared to AoS", chart_layers=cache_lines)
 
 diff.select("test", "number_of_items", "diff").write_csv(fig_dir.joinpath("Layout-execution_time-diff.csv"))
@@ -245,7 +245,7 @@ layout_diff.sort("test", "number_of_items").group_by("test", "number_of_items", 
 diff = control_flow_tests.join(
     control_flow_tests.filter(Scenario="DD-unsorted").group_by("number_of_items").agg(DD_mean=pl.mean("execution_time")), 
     on="number_of_items"
-).group_by("Scenario", "number_of_items").agg(diff=pl.mean("execution_time") / pl.first("DD_mean") - pl.lit(1))
+).group_by("Scenario", "number_of_items").agg(diff=pl.lit(1) - pl.mean("execution_time") / pl.first("DD_mean"))
 per_size_line("ControlFlow-execution_time", diff, "diff", color="Scenario", y_format="%", chart_layers=cache_lines)
 
 for extent in ["ci", "stdev"]:
